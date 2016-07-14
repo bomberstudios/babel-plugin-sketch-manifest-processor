@@ -6,6 +6,8 @@ var template = require("babel-template");
 const DefaultOptions = {
     pluginManifestDescriberName: 'SketchPlugin',
     handlerFunctionTemplate: '___{{identifier}}_run_handler_',
+    setupHandlerFunctionTemplate: '___{{identifier}}_setUp_handler_',
+    teardownHandlerFunctionTemplate: '___{{identifier}}_tearDown_handler_',
     globalVarName: '__global',
     scriptFileName: 'plugin.js',
     startingManifestTag: '__$begin_of_manifest_\n',
@@ -113,7 +115,13 @@ function main() {
                     }
 
                     function handlerKeyFromIdentifier(identifier) {
-                        return options.handlerFunctionTemplate.replace(new RegExp('{{identifier}}', 'g'),_.camelCase(identifier))
+                        return options.handlerFunctionTemplate.replace(new RegExp('{{identifier}}', 'g'),_.camelCase(identifier));
+                    }
+                    function setupHandlerKeyFromIdentifier(identifier) {
+                        return options.setupHandlerFunctionTemplate.replace(new RegExp('{{identifier}}', 'g'),_.camelCase(identifier));
+                    }
+                    function teardownHandlerKeyFromIdentifier(identifier) {
+                        return options.teardownHandlerFunctionTemplate.replace(new RegExp('{{identifier}}', 'g'),_.camelCase(identifier));
                     }
 
                     var obj = objectExpressionToDeclarativeObject(_.get(declaration,'init'));
@@ -132,16 +140,17 @@ function main() {
                     });
 
                     _.each(obj.commands,function(command) {
-                        var result = template(options.globalVarName+"."+handlerKeyFromIdentifier(command.identifier)+" = function(context,params) { "+options.pluginManifestDescriberName+".commands['"+command.identifier+"'].run(context,params);"+" };");
-                        path.node.body.push(result());
-
+                        var runHandler      = template(options.globalVarName + "." + handlerKeyFromIdentifier(command.identifier) + " = function(context,params) { " + options.pluginManifestDescriberName + ".commands['" + command.identifier + "'].run(context,params);" + " };");
+                        var setupHandler    = template(options.globalVarName + "." + setupHandlerKeyFromIdentifier(command.identifier) + " = function(context,params) { " + options.pluginManifestDescriberName + ".commands['" + command.identifier + "'].setUp(context,params);" + " };");
+                        var teardownHandler = template(options.globalVarName + "." + teardownHandlerKeyFromIdentifier(command.identifier) + " = function(context,params) { " + options.pluginManifestDescriberName + ".commands['" + command.identifier + "'].tearDown(context,params);" + " };");
+                        path.node.body.push(runHandler());
+                        path.node.body.push(setupHandler());
+                        path.node.body.push(teardownHandler());
                     });
 
                     var manifest = JSON.stringify(obj,null,4);
                     path.addComment("trailing",options.startingManifestTag + manifest + options.endingManifestTag);
                 }
-
-
             }
         }
     };
